@@ -1,4 +1,5 @@
 import os
+import sys
 
 import torch
 
@@ -23,6 +24,13 @@ def initialize():
     except FileNotFoundError:
         pass
 
+    if cmd_opts.use_directml:
+        from modules.dml import directml_init, directml_do_hijack
+        directml_init()
+        directml_do_hijack()
+    else:
+        torch.Tensor.__str__ = lambda self: None
+
     from modules import devices
     devices.device, devices.device_interrogate, devices.device_gfpgan, devices.device_esrgan, devices.device_codeformer = \
         (devices.cpu if any(y in cmd_opts.use_cpu for y in [x, 'all']) else devices.get_optimal_device() for x in ['sd', 'interrogate', 'gfpgan', 'esrgan', 'codeformer'])
@@ -44,6 +52,7 @@ def initialize():
 
     from modules import shared_state
     shared.state = shared_state.State()
+    shared.compiled_model_state = shared_state.CompiledModelState()
 
     from modules import styles
     shared.prompt_styles = styles.StyleDatabase(shared.styles_filename)
@@ -58,3 +67,14 @@ def initialize():
     shared.mem_mon = memmon.MemUsageMonitor("MemMon", devices.device, shared.opts)
     shared.mem_mon.start()
 
+    if not cmd_opts.skip_ort:
+        from modules.onnx_impl import initialize_onnx
+        initialize_onnx()
+
+    if devices.backend == "zluda":
+        from modules.zluda import initialize_zluda
+        initialize_zluda()
+
+    if sys.platform == "win32" and torch.cuda.is_available() and torch.version.hip is not None:
+        from modules.rocm_triton_windows import apply_triton_patches
+        apply_triton_patches()

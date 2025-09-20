@@ -1,3 +1,4 @@
+--use-zluda
 @echo off
 
 set PYTHON=
