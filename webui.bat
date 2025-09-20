@@ -1,3 +1,4 @@
+--use-zluda
 @echo off
 
 if exist webui.settings.bat (
